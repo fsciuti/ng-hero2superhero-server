@@ -5,7 +5,6 @@ const jwt = require('jsonwebtoken')
 
 const server = jsonServer.create()
 const router = jsonServer.router('./database.json')
-const userdb = JSON.parse(fs.readFileSync('./users.json', 'UTF-8'))
 
 server.use(bodyParser.urlencoded({extended: true}))
 server.use(bodyParser.json())
@@ -27,14 +26,21 @@ function verifyToken(token){
 
 // Check if the user exists in database
 function isAuthenticated({email, password}){
+  let userdb = JSON.parse(fs.readFileSync('./users.json', 'UTF-8'));
   return userdb.users.findIndex(user => user.email === email && user.password === password) !== -1
+}
+
+// Check if the user exists in database
+function getUser({email, password}){
+  let userdb = JSON.parse(fs.readFileSync('./users.json', 'UTF-8'));
+  return userdb.users.find(user => user.email === email && user.password === password)
 }
 
 // Register New User
 server.post('/auth/register', (req, res) => {
   console.log("register endpoint called; request body:");
   console.log(req.body);
-  const {email, password} = req.body;
+  const {email, password, role} = req.body;
 
   if(isAuthenticated({email, password}) === true) {
     const status = 401;
@@ -58,7 +64,7 @@ fs.readFile("./users.json", (err, data) => {
     var last_item_id = data.users[data.users.length-1].id;
 
     //Add new user
-    data.users.push({id: last_item_id + 1, email: email, password: password}); //add some data
+    data.users.push({id: last_item_id + 1, email: email, password: password, role: role}); //add some data
     var writeData = fs.writeFile("./users.json", JSON.stringify(data), (err, result) => {  // WRITE
         if (err) {
           const status = 401
@@ -70,7 +76,7 @@ fs.readFile("./users.json", (err, data) => {
 });
 
 // Create token for new user
-  const access_token = createToken({email, password})
+  const access_token = createToken({email, password, role})
   console.log("Access Token:" + access_token);
   res.status(200).json({access_token})
 })
@@ -86,7 +92,9 @@ server.post('/auth/login', (req, res) => {
     res.status(status).json({status, message})
     return
   }
-  const access_token = createToken({email, password})
+  const user = getUser({email, password});
+  const { role } = user;
+  const access_token = createToken({email, password, role})
   console.log("Access Token:" + access_token);
   res.status(200).json({access_token})
 })
